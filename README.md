@@ -1,36 +1,69 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Cart API — RESTful API có contract (OpenAPI, validation, logging)
 
-## Getting Started
+Next.js 16 (Route Handlers) + TypeScript + PostgreSQL. Code-first: schema `zod` là nguồn duy nhất cho cả validation lẫn OpenAPI 3.1.
 
-First, run the development server:
+## Yêu cầu
+
+- Node.js 20+
+- Docker Desktop (chạy PostgreSQL 17)
+
+## Setup
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env          # DATABASE_URL=postgres://cart:cart@localhost:5433/cart_api
+
+npm run db:up                 # tạo DB: docker compose up postgres (port 5433)
+npm run db:migrate            # chạy db/migrations/*.sql
+npm run db:seed               # nạp db/seed.sql (5 product, 1 cart đã checkout)
+npm run dev                   # server http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+| Lệnh | Việc làm |
+|---|---|
+| `npm run db:reset` | Xóa sạch schema, migrate lại, seed lại |
+| `npm run db:down` | Tắt container PostgreSQL |
+| `npm run openapi` | Xuất spec ra `docs/openapi.json` |
+| `npm run test:acceptance` | Chạy ma trận nghiệm thu (cần server đang chạy) |
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Địa chỉ
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| URL | Nội dung |
+|---|---|
+| `/docs` | Tài liệu API (Scalar), gửi được request thật |
+| `/openapi.json` | OpenAPI 3.1 sinh từ schema zod |
+| `/` | UI demo nhỏ gọi API |
 
-## Learn More
+## Endpoint
 
-To learn more about Next.js, take a look at the following resources:
+| Method | Path | Thành công |
+|---|---|---|
+| GET | `/products?limit=&offset=` | 200, product đang bán, `limit` 1-50 (mặc định 20) |
+| POST | `/carts` | 201, header `Location` |
+| GET | `/carts/{cartId}` | 200, cart + items + `subtotal_cents` |
+| POST | `/carts/{cartId}/items` | 201, trả cart |
+| PATCH | `/carts/{cartId}/items/{productId}` | 200, trả cart |
+| DELETE | `/carts/{cartId}/items/{productId}` | 204 |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Lỗi luôn có dạng `{ code, message, details[], request_id }`; `request_id` trùng header `X-Request-Id` và dòng log.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Cấu trúc
 
-## Deploy on Vercel
+```
+app/                    route handlers (mỗi file chỉ: validate → gọi service → trả JSON)
+lib/api/schemas.ts      NGUỒN SCHEMA DUY NHẤT (zod + metadata OpenAPI)
+lib/api/openapi.ts      đăng ký path/response → OpenAPI 3.1
+lib/api/validate.ts     validate path/query/body, đổi lỗi zod → error contract
+lib/api/handler.ts      withApi(): request_id, log, bắt mọi lỗi → error contract
+lib/api/logger.ts       pino → stdout + logs/app.log, redact secret
+lib/cart/service.ts     rule nghiệp vụ trong transaction
+db/                     migration + seed
+scripts/                db.ts (migrate/seed/reset), acceptance.ts, export-openapi.ts
+docs/                   tài liệu thuyết trình + kết quả nghiệm thu
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Xem log theo request_id
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+grep <request_id> logs/app.log
+```
