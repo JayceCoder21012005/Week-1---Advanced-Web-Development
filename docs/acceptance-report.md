@@ -1,6 +1,6 @@
 # Kết quả nghiệm thu
 
-Chạy lúc 2026-10-01T03:21:50.909Z bằng `npm run test:acceptance`. Mỗi response đã được đối chiếu với `/openapi.json` (Ajv) và kiểm tra `X-Request-Id`.
+Chạy lúc 2026-10-01T03:33:05.396Z bằng `npm run test:acceptance`. Mỗi response đã được đối chiếu với `/openapi.json` (Ajv) và kiểm tra `X-Request-Id`.
 
 | Nhóm | Kịch bản | Mong đợi | Thực tế | |
 |---|---|---|---|---|

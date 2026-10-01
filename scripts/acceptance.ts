@@ -18,7 +18,9 @@ import { Client } from "pg";
 import { SEED } from "../lib/db/seed-ids";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000";
-const SKIP_DB_DOWN = process.argv.includes("--skip-db-down");
+// Kịch bản tắt DB dùng `docker stop`, chỉ áp dụng cho PostgreSQL local (docker compose).
+const LOCAL_DB = /@(localhost|127\.0\.0\.1)[:/]/.test(process.env.DATABASE_URL ?? "");
+const SKIP_DB_DOWN = process.argv.includes("--skip-db-down") || !LOCAL_DB;
 const PRICES = { keyboard: 120000, hub: 30000 }; // giá trong db/seed.sql
 
 type Res = { status: number; body: any; headers: Headers; method: string; template: string };
@@ -171,7 +173,9 @@ async function main() {
 
   await db.end();
 
-  if (!SKIP_DB_DOWN) {
+  if (SKIP_DB_DOWN) {
+    console.log("SKIP  Tắt PostgreSQL: DB không chạy bằng docker local (vd: Neon) — kiểm tra thủ công, xem README");
+  } else {
     console.log("Tắt PostgreSQL...");
     execSync("docker stop cart-api-db", { stdio: "ignore" });
     try {

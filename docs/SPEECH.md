@@ -184,6 +184,33 @@ Mỗi câu có câu trả lời ngắn để nói, kèm ý cốt lõi cần hi�
 **23. Sao lưu giá bằng `price_cents` kiểu integer mà không dùng số thực?**
 > Số thực (float) bị sai số khi cộng tiền, ví dụ 0.1 + 0.2 ra 0.30000000000000004. Lưu bằng đơn vị nhỏ nhất dưới dạng số nguyên thì tính toán chính xác.
 
+### F. Lựa chọn stack
+
+**24. API hiện tại dùng stack gì?**
+> Next.js 16, dùng Route Handlers, viết bằng TypeScript. Database là PostgreSQL 17 chạy bằng Docker, truy cập bằng thư viện `pg` và SQL thuần. Schema viết bằng `zod`, sinh OpenAPI 3.1 bằng `zod-to-openapi`, hiển thị tài liệu bằng Scalar. Log bằng `pino`. Script nghiệm thu dùng Ajv để đối chiếu response với spec.
+
+**25. Sao dùng Next.js mà không dùng Express, NestJS hay Fastify?**
+> Nhóm chọn Next.js vì quen và có sẵn TypeScript, routing theo thư mục, deploy dễ. Nhược điểm là Next.js không có hệ middleware như Express, nên không dùng được `express-openapi-validator` để làm contract-first. Em xử lý bằng cách viết hàm bọc `withApi` để gom phần log và bắt lỗi về một chỗ.
+> Nếu chỉ làm API thuần và muốn đi contract-first thì Express hoặc Fastify hợp hơn. NestJS mạnh nhưng nặng so với 6 endpoint.
+
+**26. Sao dùng SQL thuần (`pg`) mà không dùng ORM như Prisma hay Drizzle?**
+> Đề cho sẵn câu `CREATE TABLE` có CHECK constraint. Viết migration bằng SQL thì giữ đúng y như đề. Thêm nữa, em cần `SELECT … FOR UPDATE` và transaction, mà SQL thuần thì nhìn thấy rõ câu lệnh đang chạy. Đổi lại, em phải tự viết type cho kết quả query và tự viết script migrate.
+
+**27. Sao dùng PostgreSQL mà không dùng MongoDB?**
+> Dữ liệu giỏ hàng có quan hệ rõ ràng: cart → items → product. Nó cần khóa ngoại, constraint và transaction để không sai số lượng. Đây đúng là điểm mạnh của cơ sở dữ liệu quan hệ.
+
+**28. Sao dùng `zod` mà không dùng Joi hay class-validator?**
+> Với `zod`, TypeScript tự suy ra type từ schema nên không phải khai báo hai lần. Và có `zod-to-openapi` để sinh spec, nên giữ được một nguồn schema duy nhất. Joi không cho type tốt bằng. class-validator cần viết class kèm decorator, hợp với NestJS hơn.
+
+**29. Sao dùng `pino` mà không dùng `morgan` hay `winston`?**
+> `morgan` chỉ ghi access log dạng text, khó gắn thêm trường. `winston` dùng được nhưng nặng hơn. `pino` ghi JSON mặc định, rất nhanh, có `child({ request_id })` để mọi dòng log của một request tự mang theo `request_id`, và có sẵn `redact` để che dữ liệu nhạy cảm.
+
+**30. Sao dùng Scalar mà không dùng Swagger UI?**
+> Cả hai đều đọc cùng một file `/openapi.json`, nên đổi qua lại không ảnh hưởng gì tới contract. Em chọn Scalar vì giao diện gọn, có nút gửi request thật và hiện cả header của response. Nhược điểm là tải từ CDN nên cần internet.
+
+**31. Sao chạy DB bằng Docker?**
+> Để ai clone project về cũng có đúng PostgreSQL 17 chỉ với một lệnh, không cần cài đặt vào máy. Ngoài ra, script nghiệm thu cần tắt DB thật bằng `docker stop` để kiểm tra kịch bản lỗi 500.
+
 ---
 
 ## Mẹo khi trả lời
