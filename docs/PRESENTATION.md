@@ -77,7 +77,7 @@ Chuẩn bị: `npm run db:reset && npm run dev`, mở 2 cửa sổ: trình duy�
 
 ## 4. Evidence & Trade-off (~1.5 phút)
 
-### Evidence: `npm run test:acceptance` → **26/26 PASS**
+### Evidence: `npm run test:acceptance` → **28/28 PASS**
 
 Script chạy lại được: reset DB → chạy từng dòng ma trận → **đối chiếu mọi response với `/openapi.json` bằng Ajv** (validator độc lập với zod) → ghi `docs/acceptance-report.md`.
 
@@ -92,11 +92,11 @@ Script chạy lại được: reset DB → chạy từng dòng ma trận → **�
 | **Tắt PostgreSQL** rồi gọi API | 500 `INTERNAL_ERROR`, không stack trace; bật lại DB thì API tự hồi phục ✅ |
 | So response thật với spec | Mọi response khớp schema + đúng status đã khai báo ✅ |
 
-Thêm: `ITEM_ALREADY_IN_CART`, PATCH/DELETE thành công, `ITEM_NOT_FOUND`, `limit=51`, JSON hỏng, `request_id` có trong log.
+Thêm: đường dẫn không tồn tại → 404 `NOT_FOUND`, sai method → 405 `METHOD_NOT_ALLOWED` (cùng error contract), `ITEM_ALREADY_IN_CART`, PATCH/DELETE thành công, `ITEM_NOT_FOUND`, `limit=51`, JSON hỏng, `request_id` có trong log.
 
 ### Trade-off & chưa kiểm tra
 
 - **Code-first:** spec phụ thuộc thư viện sinh; muốn chỉnh chi tiết OpenAPI phải qua metadata `.openapi()`. Bù lại không bao giờ lệch giữa spec và validation.
 - **Tồn kho chỉ được kiểm tra, không giữ chỗ:** 2 cart có thể cùng thêm 5/5 sản phẩm; giữ hàng là việc của checkout (tuần sau).
-- **Chưa kiểm tra:** tải đồng thời nhiều request vào cùng cart (đã khóa `FOR UPDATE` nhưng chưa có test), route không tồn tại / sai method vẫn trả trang mặc định của Next.js chứ chưa theo error contract, log chưa xoay vòng file, `/docs` cần internet (Scalar tải từ CDN).
+- **Chưa kiểm tra:** tải đồng thời nhiều request vào cùng cart (đã khóa `FOR UPDATE` nhưng chưa có test), log chưa xoay vòng file, `/docs` cần internet (Scalar tải từ CDN).
 - **Phát hiện khi đọc đề:** slide ghi `CHECK (stock <= 0)` — đã sửa thành `stock >= 0` vì ngược lại seed "3 product còn hàng" không chèn được.

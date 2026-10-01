@@ -69,6 +69,8 @@ export default function Home() {
           <p className="text-sm text-zinc-500">UI chỉ gọi API công khai; tài liệu đầy đủ ở /docs.</p>
         </div>
         <div className="flex gap-2">
+          {/* /docs là route handler trả HTML, không phải page nên không dùng <Link> */}
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
           <a className="rounded border px-3 py-1.5 text-sm" href="/docs">
             /docs
           </a>

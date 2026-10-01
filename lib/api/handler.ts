@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { NextRequest } from "next/server";
 import type { Logger } from "pino";
-import { ApiError, type ErrorDetail } from "./errors";
+import { ApiError, Errors, type ErrorDetail } from "./errors";
 import { logger } from "./logger";
 
 type Ctx<P> = { req: NextRequest; params: P; requestId: string; log: Logger };
@@ -12,7 +12,7 @@ type Ctx<P> = { req: NextRequest; params: P; requestId: string; log: Logger };
  *  - log 1 dòng mỗi request (method, path, status, duration, error code)
  *  - đổi mọi lỗi (kể cả lỗi không lường trước) sang error contract; 500 không lộ stack/SQL
  */
-export function withApi<P extends Record<string, string>>(handler: (ctx: Ctx<P>) => Promise<Response>) {
+export function withApi<P extends Record<string, string | string[]>>(handler: (ctx: Ctx<P>) => Promise<Response>) {
   return async (req: NextRequest, context: { params: Promise<P> }): Promise<Response> => {
     const requestId = randomUUID();
     const start = performance.now();
@@ -26,6 +26,7 @@ export function withApi<P extends Record<string, string>>(handler: (ctx: Ctx<P>)
       if (err instanceof ApiError) {
         errInfo = { code: err.code, details: err.details };
         res = errorResponse(err.status, err.code, err.message, err.details, requestId);
+        for (const [k, v] of Object.entries(err.headers)) res.headers.set(k, v);
       } else {
         // Stack trace chỉ nằm trong log, không bao giờ trong response.
         errInfo = { code: "INTERNAL_ERROR", err };
@@ -50,4 +51,21 @@ export function withApi<P extends Record<string, string>>(handler: (ctx: Ctx<P>)
 
 function errorResponse(status: number, code: string, message: string, details: ErrorDetail[], requestId: string) {
   return Response.json({ code, message, details, request_id: requestId }, { status });
+}
+
+const ALL_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
+
+/**
+ * Trả 405 theo error contract cho các method mà route không hỗ trợ
+ * (mặc định Next.js trả 405 với body rỗng).
+ *   export const { PUT, DELETE } = rejectOtherMethods(["GET"]);
+ */
+export function rejectOtherMethods(allowed: (typeof ALL_METHODS)[number][]) {
+  const handler = withApi(async () => {
+    throw Errors.methodNotAllowed(allowed);
+  });
+  return Object.fromEntries(ALL_METHODS.filter((m) => !allowed.includes(m)).map((m) => [m, handler])) as Record<
+    (typeof ALL_METHODS)[number],
+    typeof handler
+  >;
 }

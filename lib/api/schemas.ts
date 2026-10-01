@@ -11,11 +11,12 @@ import { SEED } from "../db/seed-ids";
 extendZodWithOpenApi(z);
 
 // ---------- Params ----------
-export const CartIdParam = z.uuid().openapi({
+// Đặt tên ("CartId", "ProductId") để spec sinh ra #/components/parameters và dùng $ref.
+export const CartIdParam = z.uuid().openapi("CartId", {
   param: { name: "cartId", in: "path" },
   example: "0b8f4c7e-5d2a-4f1b-9c3e-7a6d5e4f3b21",
 });
-export const ProductIdParam = z.uuid().openapi({
+export const ProductIdParam = z.uuid().openapi("ProductId", {
   param: { name: "productId", in: "path" },
   example: SEED.keyboard,
 });

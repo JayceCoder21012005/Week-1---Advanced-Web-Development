@@ -32,7 +32,7 @@ type Parsed<T extends Parts> = { [K in keyof T]: T[K] extends z.ZodType ? z.outp
  */
 export async function validate<T extends Parts>(
   req: NextRequest,
-  rawParams: Record<string, string>,
+  rawParams: Record<string, string | string[]>,
   schemas: T,
 ): Promise<Parsed<T>> {
   const out: Record<string, unknown> = {};

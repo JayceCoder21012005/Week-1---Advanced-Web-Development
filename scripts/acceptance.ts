@@ -32,9 +32,18 @@ let spec: any;
 const ajv = new Ajv2020({ strict: false, allErrors: true });
 addFormats(ajv);
 
+// Response có thể là $ref tới #/components/responses/...
+const deref = (o: any) => (o?.$ref ? o.$ref.split("/").slice(1).reduce((a: any, k: string) => a[k], spec) : o);
+
+const ANY_ROUTE = "*"; // 404/405 chung cho mọi đường dẫn: chỉ cần khớp schema Error
+
 function checkAgainstSpec(r: Res): string | null {
+  if (r.template === ANY_ROUTE) {
+    const v = ajv.getSchema("openapi.json#/components/schemas/Error")!;
+    return v(r.body) ? null : ajv.errorsText(v.errors);
+  }
   const op = spec.paths[r.template]?.[r.method.toLowerCase()];
-  const resSpec = op?.responses?.[String(r.status)];
+  const resSpec = deref(op?.responses?.[String(r.status)]);
   if (!resSpec) return `status ${r.status} không được khai báo trong spec cho ${r.method} ${r.template}`;
   const schema = resSpec.content?.["application/json"]?.schema;
   if (!schema) return r.body === null ? null : "spec không có body nhưng response có body";
@@ -162,6 +171,15 @@ async function main() {
     record(G2, "Product hết hàng (stock 0)", "409 INSUFFICIENT_STOCK", await call("POST", ITEMS, `/carts/${c}/items`, { product_id: SEED.outOfStock, quantity: 1 }));
   }
   record(G2, "Ghi vào cart đã checkout", "409 CART_CLOSED", await call("POST", ITEMS, `/carts/${SEED.checkedOutCart}/items`, { product_id: SEED.keyboard, quantity: 1 }));
+
+  // Lỗi ngoài 6 endpoint cũng phải theo error contract
+  record(G2, "Đường dẫn không tồn tại", "404 NOT_FOUND", await call("GET", ANY_ROUTE, "/khong-co"));
+  {
+    const r = await call("PUT", ANY_ROUTE, "/carts");
+    record(G2, "Method không hỗ trợ (PUT /carts)", "405 METHOD_NOT_ALLOWED", r, [
+      r.headers.get("allow") === "POST" ? null : `header Allow = ${r.headers.get("allow")}`,
+    ]);
+  }
 
   // request_id phải tìm được trong log
   {

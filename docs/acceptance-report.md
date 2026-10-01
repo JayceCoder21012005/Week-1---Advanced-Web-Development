@@ -1,6 +1,6 @@
 # Kết quả nghiệm thu
 
-Chạy lúc 2026-10-01T03:33:05.396Z bằng `npm run test:acceptance`. Mỗi response đã được đối chiếu với `/openapi.json` (Ajv) và kiểm tra `X-Request-Id`.
+Chạy lúc 2026-10-01T09:00:15.229Z bằng `npm run test:acceptance`. Mỗi response đã được đối chiếu với `/openapi.json` (Ajv) và kiểm tra `X-Request-Id`.
 
 | Nhóm | Kịch bản | Mong đợi | Thực tế | |
 |---|---|---|---|---|
@@ -28,7 +28,9 @@ Chạy lúc 2026-10-01T03:33:05.396Z bằng `npm run test:acceptance`. Mỗi res
 | Nghiệp vụ & server | Vượt stock (mouse x6, stock 5) | 409 INSUFFICIENT_STOCK | 409 INSUFFICIENT_STOCK | ✅ |
 | Nghiệp vụ & server | Product hết hàng (stock 0) | 409 INSUFFICIENT_STOCK | 409 INSUFFICIENT_STOCK | ✅ |
 | Nghiệp vụ & server | Ghi vào cart đã checkout | 409 CART_CLOSED | 409 CART_CLOSED | ✅ |
+| Nghiệp vụ & server | Đường dẫn không tồn tại | 404 NOT_FOUND | 404 NOT_FOUND | ✅ |
+| Nghiệp vụ & server | Method không hỗ trợ (PUT /carts) | 405 METHOD_NOT_ALLOWED | 405 METHOD_NOT_ALLOWED | ✅ |
 | Nghiệp vụ & server | request_id lỗi có dòng log tương ứng | 400 VALIDATION_ERROR | 400 VALIDATION_ERROR | ✅ |
 | Nghiệp vụ & server | Tắt PostgreSQL rồi GET /products | 500 INTERNAL_ERROR | 500 INTERNAL_ERROR | ✅ |
 
-**26/26 PASS**
+**28/28 PASS**

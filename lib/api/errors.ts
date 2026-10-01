@@ -7,6 +7,7 @@ export const ERROR_CODES = [
   "ITEM_ALREADY_IN_CART",
   "CART_CLOSED",
   "NOT_FOUND",
+  "METHOD_NOT_ALLOWED",
   "INTERNAL_ERROR",
 ] as const;
 
@@ -21,6 +22,7 @@ export class ApiError extends Error {
     public readonly code: ErrorCode,
     message: string,
     public readonly details: ErrorDetail[] = [],
+    public readonly headers: Record<string, string> = {},
   ) {
     super(message);
   }
@@ -38,4 +40,9 @@ export const Errors = {
   itemAlreadyInCart: () =>
     new ApiError(409, "ITEM_ALREADY_IN_CART", "Product đã có trong cart, hãy dùng PATCH để đổi số lượng"),
   cartClosed: () => new ApiError(409, "CART_CLOSED", "Cart đã checkout, không thể thay đổi"),
+  notFound: () => new ApiError(404, "NOT_FOUND", "Đường dẫn không tồn tại"),
+  methodNotAllowed: (allowed: string[]) =>
+    new ApiError(405, "METHOD_NOT_ALLOWED", `Method không được hỗ trợ, chỉ cho phép: ${allowed.join(", ")}`, [], {
+      Allow: allowed.join(", "),
+    }),
 };

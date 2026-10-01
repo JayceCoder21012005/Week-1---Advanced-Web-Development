@@ -1,4 +1,4 @@
-import { withApi } from "@/lib/api/handler";
+import { rejectOtherMethods, withApi } from "@/lib/api/handler";
 import { CartItemParams, UpdateItemRequest } from "@/lib/api/schemas";
 import { validate } from "@/lib/api/validate";
 import { removeItem, updateItem } from "@/lib/cart/service";
@@ -15,3 +15,5 @@ export const DELETE = withApi<Params>(async ({ req, params }) => {
   await removeItem(p.cartId, p.productId);
   return new Response(null, { status: 204 });
 });
+
+export const { GET, POST, PUT } = rejectOtherMethods(["PATCH", "DELETE"]);

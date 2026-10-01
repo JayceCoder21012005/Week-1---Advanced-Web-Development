@@ -19,54 +19,58 @@ const registry = new OpenAPIRegistry();
 registry.register("Error", ErrorResponse);
 
 const RID = "7f3c2a9e-1b4d-4c8a-9e21-5d6f0a3b8c10";
-const requestIdHeader = {
-  description: "Mã request, trùng với request_id trong body lỗi và log",
-  schema: { type: "string" as const, format: "uuid" },
-};
+
+// ---------- Component dùng chung: khai báo một lần, các path tham chiếu bằng $ref ----------
+const requestIdHeader = registry.registerComponent("headers", "RequestId", {
+  description: "Mã request, trùng với request_id trong body lỗi và dòng log",
+  schema: { type: "string", format: "uuid" },
+}).ref;
+const errorSchemaRef = { $ref: "#/components/schemas/Error" };
 
 const err = (code: string, message: string, details: { field: string; issue: string }[] = []) => ({
   value: { code, message, details, request_id: RID },
 });
 
-function errorResponse(description: string, examples: Record<string, { value: unknown }>): ResponseConfig {
-  return {
+function errorComponent(name: string, description: string, examples: Record<string, { value: unknown }>) {
+  return registry.registerComponent("responses", name, {
     description,
     headers: { "X-Request-Id": requestIdHeader },
-    content: { "application/json": { schema: ErrorResponse, examples } },
-  };
+    content: { "application/json": { schema: errorSchemaRef, examples } },
+  }).ref;
 }
 
 function cartResponse(description: string): ResponseConfig {
   return { description, headers: { "X-Request-Id": requestIdHeader }, content: { "application/json": { schema: Cart } } };
 }
 
-const E400 = errorResponse("Request sai schema (path, query hoặc body)", {
+const conflict = {
+  closed: err("CART_CLOSED", "Cart đã checkout, không thể thay đổi"),
+  stock: err("INSUFFICIENT_STOCK", "Số lượng vượt tồn kho (còn 5)"),
+  already: err("ITEM_ALREADY_IN_CART", "Product đã có trong cart, hãy dùng PATCH để đổi số lượng"),
+};
+
+const E400 = errorComponent("ValidationError", "Request sai schema (path, query hoặc body)", {
   quantityTooBig: err("VALIDATION_ERROR", "Request không hợp lệ", [{ field: "quantity", issue: "must be <= 10" }]),
   unknownField: err("VALIDATION_ERROR", "Request không hợp lệ", [{ field: "price", issue: "is not allowed" }]),
   badCartId: err("VALIDATION_ERROR", "Request không hợp lệ", [{ field: "cartId", issue: "must be a valid uuid" }]),
 });
-const E404Cart = errorResponse("cartId không tồn tại", {
+const E404Cart = errorComponent("CartNotFound", "cartId không tồn tại", {
   cartNotFound: err("CART_NOT_FOUND", "Không tìm thấy cart"),
 });
-const E404CartOrItem = errorResponse("Cart hoặc item không tồn tại", {
+const E404CartOrItem = errorComponent("CartOrItemNotFound", "Cart hoặc item không tồn tại", {
   cartNotFound: err("CART_NOT_FOUND", "Không tìm thấy cart"),
   itemNotFound: err("ITEM_NOT_FOUND", "Product không có trong cart"),
 });
-const E409 = (keys: ("closed" | "stock" | "already")[]) => {
-  const all = {
-    closed: err("CART_CLOSED", "Cart đã checkout, không thể thay đổi"),
-    stock: err("INSUFFICIENT_STOCK", "Số lượng vượt tồn kho (còn 5)"),
-    already: err("ITEM_ALREADY_IN_CART", "Product đã có trong cart, hãy dùng PATCH để đổi số lượng"),
-  };
-  return errorResponse(
-    "Xung đột với trạng thái hiện tại",
-    Object.fromEntries(keys.map((k) => [k, all[k]])),
-  );
-};
-const E422 = errorResponse("Body đúng schema nhưng product không tồn tại hoặc ngừng bán", {
+const E409Add = errorComponent("AddItemConflict", "Xung đột với trạng thái hiện tại", conflict);
+const E409Update = errorComponent("UpdateItemConflict", "Xung đột với trạng thái hiện tại", {
+  closed: conflict.closed,
+  stock: conflict.stock,
+});
+const E409Closed = errorComponent("CartClosed", "Cart đã checkout", { closed: conflict.closed });
+const E422 = errorComponent("ProductUnavailable", "Body đúng schema nhưng product không tồn tại hoặc ngừng bán", {
   productUnavailable: err("PRODUCT_UNAVAILABLE", "Product không tồn tại hoặc đã ngừng bán"),
 });
-const E500 = errorResponse("Lỗi hệ thống (vd: DB không kết nối được) — không chứa stack trace", {
+const E500 = errorComponent("InternalError", "Lỗi hệ thống (vd: DB không kết nối được), không chứa stack trace", {
   internal: err("INTERNAL_ERROR", "Lỗi hệ thống, vui lòng thử lại sau"),
 });
 
@@ -144,7 +148,7 @@ registry.registerPath({
     201: cartResponse("Cart sau khi thêm"),
     400: E400,
     404: E404Cart,
-    409: E409(["closed", "stock", "already"]),
+    409: E409Add,
     422: E422,
     500: E500,
   },
@@ -164,7 +168,7 @@ registry.registerPath({
     200: cartResponse("Cart sau khi cập nhật"),
     400: E400,
     404: E404CartOrItem,
-    409: E409(["closed", "stock"]),
+    409: E409Update,
     422: E422,
     500: E500,
   },
@@ -181,7 +185,7 @@ registry.registerPath({
     204: { description: "Đã xóa, không có body", headers: { "X-Request-Id": requestIdHeader } },
     400: E400,
     404: E404CartOrItem,
-    409: E409(["closed"]),
+    409: E409Closed,
     500: E500,
   },
 });
@@ -194,7 +198,8 @@ export function buildOpenApiDocument() {
       version: "1.0.0",
       description:
         "RESTful Cart API. Mọi lỗi theo error contract `{ code, message, details, request_id }`; " +
-        "`request_id` trùng header `X-Request-Id` và dòng log trên server.",
+        "`request_id` trùng header `X-Request-Id` và dòng log trên server. " +
+        "Đường dẫn không tồn tại trả 404 `NOT_FOUND`, method không hỗ trợ trả 405 `METHOD_NOT_ALLOWED` (kèm header `Allow`), cùng dạng Error.",
     },
     servers: [{ url: "/" }],
   });

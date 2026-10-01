@@ -78,7 +78,7 @@ grep <dán request_id> logs/app.log
 
 ## Phần 4 — Evidence & Trade-off (~1.5 phút)
 
-> Về bằng chứng, em viết một script nghiệm thu, chạy bằng lệnh `npm run test:acceptance`. Kết quả là **26 trên 26 kịch bản đều pass**.
+> Về bằng chứng, em viết một script nghiệm thu, chạy bằng lệnh `npm run test:acceptance`. Kết quả là **28 trên 28 kịch bản đều pass**.
 >
 > Script này reset database về dữ liệu mẫu, chạy lần lượt từng dòng trong ma trận nghiệm thu của đề, rồi **đối chiếu mọi response thật với file OpenAPI** bằng thư viện Ajv. Ajv là validator độc lập, không dùng chung code với zod, nên nếu code trả sai so với spec thì script sẽ báo.
 >
@@ -90,7 +90,7 @@ grep <dán request_id> logs/app.log
 > Về trade-off:
 > - Code-first thì spec phụ thuộc vào thư viện sinh. Muốn chỉnh chi tiết OpenAPI phải qua metadata, không sửa YAML trực tiếp được. Bù lại thì spec và validation không bao giờ lệch nhau.
 > - Tồn kho hiện tại **chỉ được kiểm tra, chưa được giữ chỗ**. Hai giỏ hàng có thể cùng thêm hết số hàng còn lại. Việc giữ hàng em để cho phần checkout.
-> - Những gì em **chưa kiểm tra**: chưa có test tải đồng thời nhiều request vào cùng một giỏ; đường dẫn không tồn tại vẫn trả trang 404 mặc định của Next.js chứ chưa theo error contract; file log chưa xoay vòng.
+> - Những gì em **chưa kiểm tra**: chưa có test tải đồng thời nhiều request vào cùng một giỏ, và file log chưa xoay vòng.
 >
 > Ngoài ra, khi đọc đề em thấy slide ghi `CHECK (stock <= 0)`. Em nghĩ đây là lỗi đánh máy nên đã sửa thành `stock >= 0`, vì nếu giữ nguyên thì không thể seed 3 sản phẩm còn hàng.
 >
