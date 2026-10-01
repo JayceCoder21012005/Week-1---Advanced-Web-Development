@@ -201,7 +201,7 @@ async function main() {
     } finally {
       console.log("Bật lại PostgreSQL...");
       execSync("docker start cart-api-db", { stdio: "ignore" });
-      execSync("docker compose up -d --wait", { stdio: "ignore" });
+      waitForDb();
     }
   }
 
@@ -209,6 +209,19 @@ async function main() {
   const failed = rows.filter((r) => !r.pass).length;
   console.log(`\n${rows.length - failed}/${rows.length} PASS — mọi response đã đối chiếu với /openapi.json`);
   process.exit(failed ? 1 : 0);
+}
+
+/** Chờ PostgreSQL trong container nhận kết nối (không phụ thuộc tên project của docker compose). */
+function waitForDb() {
+  for (let i = 0; i < 60; i++) {
+    try {
+      execSync("docker exec cart-api-db pg_isready -U cart -d cart_api", { stdio: "ignore" });
+      return;
+    } catch {
+      execSync(process.platform === "win32" ? "ping -n 2 127.0.0.1" : "sleep 1", { stdio: "ignore" });
+    }
+  }
+  throw new Error("PostgreSQL không khởi động lại được");
 }
 
 function writeReport() {

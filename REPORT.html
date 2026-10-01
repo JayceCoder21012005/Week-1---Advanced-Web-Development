@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Báo cáo Block 01 - Nhóm 07</title>
+<style>
+  :root { --fg: #1f2328; --line: #c9d1d9; --head: #eef2f7; --code: #f3f4f6; --accent: #1f3864; }
+  html { color-scheme: light; }
+  body { margin: 0; color: var(--fg); background: #ffffff; font: 16px/1.65 "Segoe UI", system-ui, -apple-system, sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 1.7rem; line-height: 1.3; color: var(--accent); margin: 0 0 12px; }
+  h2 { font-size: 1.35rem; color: var(--accent); margin: 40px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+  h3 { font-size: 1.1rem; margin: 28px 0 8px; }
+  p, li { text-align: justify; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0 20px; font-size: .95rem; display: block; overflow-x: auto; }
+  th, td { border: 1px solid var(--line); padding: 6px 10px; text-align: left; vertical-align: top; }
+  th { background: var(--head); }
+  code { font-family: Consolas, "Courier New", monospace; font-size: .9em; background: var(--code); padding: 1px 4px; border-radius: 3px; }
+  pre { background: var(--code); padding: 12px; overflow-x: auto; border-radius: 4px; }
+  pre code { padding: 0; background: none; }
+  @media print { main { max-width: none; } h2 { break-after: avoid; } }
+</style>
+</head>
+<body>
+<main>
+<h1>Báo cáo Block 01: RESTful API có contract (OpenAPI, validation và logging)</h1>
+<p>Môn học: Advanced Web Development</p>
+<p>Nhóm 07</p>
+<table>
+<thead>
+<tr>
+<th>MSSV</th>
+<th>Họ và tên</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>23127159</td>
+<td>Phạm Lê Thái Bảo</td>
+</tr>
+<tr>
+<td>23127183</td>
+<td>Phạm Vũ Ngọc Duy</td>
+</tr>
+<tr>
+<td>23127102</td>
+<td>Lê Quang Phúc</td>
+</tr>
+</tbody></table>
+<h2>1. Tóm tắt kết quả</h2>
+<p>Nhóm xây dựng Cart API gồm 6 endpoint theo đề: xem danh sách sản phẩm, tạo giỏ hàng, xem giỏ, thêm sản phẩm, đổi số lượng và xóa sản phẩm khỏi giỏ. Ngoài phần chức năng, nhóm tập trung vào câu hỏi mà đề đặt ra: làm sao để một nhóm khác dùng được API này mà không phải đọc mã nguồn. Kết quả cuối cùng gồm:</p>
+<ul>
+<li>Tài liệu OpenAPI 3.1 sinh tự động tại <code>/openapi.json</code>, trang tài liệu tương tác tại <code>/docs</code>, có ví dụ cho mọi status.</li>
+<li>Validation chạy từ cùng một nguồn schema với spec. Request sai bị trả 400 trước khi chạm vào cơ sở dữ liệu.</li>
+<li>Mọi lỗi, kể cả 500, 404 do sai đường dẫn và 405 do sai method, đều trả về cùng một dạng JSON.</li>
+<li>Mỗi request có một <code>request_id</code>, xuất hiện ở header <code>X-Request-Id</code>, trong body lỗi và trong dòng log trên server.</li>
+<li>Script nghiệm thu chạy lại được, đạt 28/28 kịch bản, trong đó mọi response được đối chiếu với spec.</li>
+</ul>
+<p>Phần dưới đây giải thích từng lựa chọn của nhóm và lý do không dùng các phương án khác.</p>
+<h2>2. Các lựa chọn của nhóm</h2>
+<h3>2.1. Stack: Next.js 16 và TypeScript</h3>
+<p>Nhóm chọn Next.js với TypeScript vì cả nhóm đã quen với hệ sinh thái JavaScript và TypeScript, và Next.js cho phép đặt API, trang tài liệu <code>/docs</code> và một giao diện demo nhỏ trong cùng một project. Chỉ cần một lệnh <code>npm run dev</code> là chạy được toàn bộ. Route Handlers của Next.js nhận <code>Request</code> và trả <code>Response</code> theo chuẩn Web, không phải API riêng của framework, nên phần nghiệp vụ của nhóm (đặt trong thư mục <code>lib/</code>) không phụ thuộc vào Next.js. Cách tổ chức route theo thư mục cũng khớp với đường dẫn REST: file <code>app/carts/[cartId]/items/[productId]/route.ts</code> chính là <code>/carts/{cartId}/items/{productId}</code>.</p>
+<p>Nhóm không chọn Spring Boot. Spring Boot có hệ sinh thái rất mạnh cho bài này (springdoc-openapi, Bean Validation), nhưng nhóm chưa quen Java bằng TypeScript, và lượng cấu hình cùng mã khởi tạo khá lớn so với 6 endpoint. Nếu dùng Spring Boot, nhóm sẽ mất nhiều thời gian cho framework hơn là cho phần contract mà đề muốn tập trung.</p>
+<p>Nhóm không chọn Express hay Fastify dù đây là lựa chọn tự nhiên cho một API thuần. Express có thư viện <code>express-openapi-validator</code> rất hợp với hướng contract-first, nhưng nhóm muốn có giao diện demo và trang tài liệu trong cùng project, và với Express thì phải tự dựng thêm phần này. Nhóm cũng không chọn NestJS vì framework này khá nặng (module, decorator, dependency injection) so với quy mô bài.</p>
+<p>Nhóm cũng ghi nhận nhược điểm của Next.js: không có middleware gắn theo từng route như Express. Nhóm bù lại bằng hàm bọc <code>withApi</code> (trình bày ở mục 2.11) để gom phần sinh <code>request_id</code>, ghi log và xử lý lỗi về một chỗ.</p>
+<h3>2.2. Hướng làm: code-first thay vì contract-first</h3>
+<p>Nhóm chọn code-first: viết schema bằng zod trong code, rồi sinh file OpenAPI từ chính các schema đó. Lý do chính là chỉ có một nguồn schema duy nhất. Slide về các lỗi thường gặp có nêu lỗi &quot;hai nguồn schema&quot;, tức spec viết một kiểu còn code kiểm tra một kiểu khác. Khi cùng một schema vừa dùng để kiểm tra request vừa dùng để sinh tài liệu thì lỗi này không thể xảy ra. Ví dụ <code>z.strictObject(...)</code> vừa khiến spec có <code>additionalProperties: false</code>, vừa khiến validation từ chối field lạ.</p>
+<p>Nhóm không chọn contract-first vì Next.js không có middleware đọc file YAML để kiểm tra request như <code>express-openapi-validator</code>. Nếu viết <code>openapi.yaml</code> trước, nhóm sẽ phải tự nối validator với từng route, đồng thời vẫn phải viết lại kiểu TypeScript cho handler, tức là lại có hai nguồn. Nhóm hiểu contract-first sẽ phù hợp hơn khi nhiều nhóm cần thống nhất API trước khi bắt đầu viết code, ví dụ frontend và backend làm song song.</p>
+<h3>2.3. Thư viện validation: zod</h3>
+<p>Nhóm chọn zod (phiên bản 4) kết hợp <code>@asteasolutions/zod-to-openapi</code> vì TypeScript suy ra kiểu trực tiếp từ schema zod, không phải khai báo kiểu hai lần, và thư viện sinh spec hỗ trợ OpenAPI 3.1.</p>
+<p>Nhóm không chọn Joi vì Joi không suy ra kiểu TypeScript tốt và không có công cụ sinh OpenAPI 3.1 được duy trì tốt. Nhóm không chọn class-validator vì thư viện này yêu cầu viết class kèm decorator, hợp với NestJS hơn là với Route Handlers. Phương án viết JSON Schema rồi kiểm tra bằng Ajv cũng được cân nhắc, nhưng khi đó nhóm phải tự viết thêm kiểu TypeScript cho dữ liệu đã kiểm tra. Ajv vẫn được dùng, nhưng ở vai trò khác (mục 2.14).</p>
+<p>Một chi tiết quan trọng là lỗi của zod không được trả thẳng ra ngoài. Hàm <code>toDetails</code> trong <code>lib/api/validate.ts</code> chuyển từng lỗi của zod thành cặp <code>{ field, issue }</code> theo error contract, tránh lỗi &quot;định dạng lỗi của thư viện lọt ra&quot; mà đề có nhắc.</p>
+<h3>2.4. Documentation: Scalar</h3>
+<p>Nhóm chọn Scalar API Reference để hiển thị <code>/openapi.json</code> thành trang <code>/docs</code>. Scalar có giao diện gọn, cho phép gửi request thật ngay trên trang, hiển thị đầy đủ header của response (thuận tiện khi demo <code>X-Request-Id</code>), và hiển thị tốt các ví dụ request được đặt tên như &quot;Sai: quantity = 0&quot; hay &quot;Product ngừng bán&quot;.</p>
+<p>Nhóm không chọn Swagger UI vì giao diện cũ và rối hơn khi một endpoint có nhiều ví dụ lỗi, dù Swagger UI vẫn là lựa chọn phổ biến và ổn định. Nhóm không chọn Redoc vì bản miễn phí chỉ hiển thị tài liệu, không có chức năng gửi request thử, trong khi đề yêu cầu demo gửi một request sai từ <code>/docs</code>.</p>
+<p>Vì cả ba công cụ đều đọc cùng một file spec, việc đổi công cụ không ảnh hưởng đến contract. Nhược điểm của Scalar trong bài là thư viện được tải từ CDN, nên trang <code>/docs</code> cần kết nối internet.</p>
+<p>Để tài liệu dễ đọc cho cả người và công cụ tự động (trình sinh client, AI agent), nhóm khai báo các phần dùng chung một lần trong <code>components</code> rồi tham chiếu bằng <code>$ref</code>: header <code>RequestId</code>, các response lỗi như <code>ValidationError</code>, <code>CartNotFound</code>, <code>InternalError</code>. Nhờ vậy kích thước spec giảm khoảng 36% so với bản đầu tiên, trong khi nội dung không đổi.</p>
+<h3>2.5. Cơ sở dữ liệu: PostgreSQL</h3>
+<p>Nhóm chọn PostgreSQL vì dữ liệu giỏ hàng có quan hệ rõ ràng giữa giỏ, các món trong giỏ và sản phẩm, và bài toán cần khóa ngoại, ràng buộc <code>CHECK</code> và transaction để số lượng không bị sai. Đề bài cũng cho sẵn lược đồ bằng cú pháp PostgreSQL (kiểu <code>uuid</code>, <code>text</code>).</p>
+<p>Nhóm không chọn MySQL vì MySQL không có kiểu <code>uuid</code> gốc và chỉ hỗ trợ đầy đủ ràng buộc <code>CHECK</code> từ phiên bản 8.0.16, nên phải chỉnh lại lược đồ của đề. Nhóm không chọn MongoDB vì MongoDB không có khóa ngoại, việc giữ toàn vẹn dữ liệu giữa giỏ và sản phẩm sẽ phải tự xử lý trong code.</p>
+<p>Khi đọc đề, nhóm phát hiện ràng buộc <code>CHECK (stock &lt;= 0)</code> trên slide. Nếu giữ nguyên thì không thể seed sản phẩm còn hàng, nên nhóm xem đây là lỗi đánh máy và dùng <code>CHECK (stock &gt;= 0)</code>. Ghi chú này được để lại trong file migration.</p>
+<h3>2.6. Cách chạy cơ sở dữ liệu: Docker thay vì dịch vụ cloud</h3>
+<p>Nhóm chọn chạy PostgreSQL 17 bằng Docker Compose. Ai clone project về cũng có đúng phiên bản cơ sở dữ liệu chỉ với lệnh <code>npm run db:up</code>, không cần cài đặt vào máy và không cần chia sẻ mật khẩu.</p>
+<p>Trong quá trình làm, nhóm có cân nhắc dùng Neon (PostgreSQL trên cloud) nhưng quyết định không dùng vì ba lý do. Thứ nhất, ma trận nghiệm thu có kịch bản &quot;tắt PostgreSQL rồi gọi API&quot;, với Docker nhóm tắt được cơ sở dữ liệu thật bằng <code>docker stop</code>, còn với dịch vụ cloud thì không. Thứ hai, Neon tạm ngủ khi không có ai dùng, request đầu tiên sau đó có thể bị chậm và làm buổi demo kém ổn định. Thứ ba, Docker không phụ thuộc vào kết nối mạng.</p>
+<p>Container được map ra cổng 5433 thay vì 5432 mặc định để tránh xung đột với PostgreSQL có thể đã cài sẵn trên máy.</p>
+<h3>2.7. Truy cập cơ sở dữ liệu: SQL thuần với thư viện pg</h3>
+<p>Nhóm chọn viết SQL thuần với thư viện <code>pg</code> vì đề đã cho sẵn các câu <code>CREATE TABLE</code>, và viết SQL trực tiếp giúp giữ đúng lược đồ đó. Phần nghiệp vụ cần transaction và câu lệnh <code>SELECT ... FOR UPDATE</code>, khi viết SQL thì nhóm thấy rõ câu lệnh nào đang chạy và khóa những gì.</p>
+<p>Nhóm không chọn Prisma vì Prisma dùng ngôn ngữ schema riêng, sinh ra migration của riêng nó và cần thêm bước sinh client. Với 3 bảng, chi phí này lớn hơn lợi ích. Nhóm không chọn TypeORM vì cách khai báo bằng decorator và hành vi đồng bộ lược đồ tự động dễ gây khó hiểu. Drizzle là một lựa chọn nhẹ và hợp lý, nhưng nhóm thấy không cần thiết ở quy mô hiện tại. Nhược điểm của SQL thuần là nhóm phải tự khai báo kiểu cho kết quả truy vấn.</p>
+<h3>2.8. Migration, seed và reset: script tự viết</h3>
+<p>Nhóm chọn tự viết script <code>scripts/db.ts</code> gồm ba lệnh <code>migrate</code>, <code>seed</code> và <code>reset</code>. Lệnh <code>migrate</code> chạy các file SQL trong <code>db/migrations/</code> theo thứ tự, mỗi file trong một transaction, và lưu tên file đã chạy vào bảng <code>schema_migrations</code> để chạy lại nhiều lần cũng không lỗi. Script chỉ khoảng 70 dòng, dễ đọc và không thêm phụ thuộc nào.</p>
+<p>Nhóm không chọn Flyway vì công cụ này chạy trên Java, nặng so với project Node.js. Nhóm không chọn <code>node-pg-migrate</code> hay <code>knex</code> vì cả hai đều yêu cầu viết migration theo API riêng của thư viện, trong khi nhóm muốn giữ file migration là SQL thuần giống với đề.</p>
+<p>Dữ liệu seed được thiết kế để phủ đủ các tình huống kiểm thử: 3 sản phẩm đang bán còn hàng, 1 sản phẩm hết hàng, 1 sản phẩm ngừng bán và 1 giỏ đã checkout. Các UUID được cố định để script nghiệm thu và ví dụ trong tài liệu dùng lại được.</p>
+<h3>2.9. Thư viện logging: pino</h3>
+<p>Nhóm chọn pino vì thư viện này ghi log dạng JSON theo mặc định và có tốc độ cao. Hàm <code>logger.child({ request_id })</code> cho phép mọi dòng log trong một request tự mang theo <code>request_id</code> mà không cần truyền tay, và tùy chọn <code>redact</code> che các trường nhạy cảm như <code>password</code>, <code>token</code>, header <code>authorization</code> và <code>cookie</code>, đúng với yêu cầu &quot;không ghi password, token, header Authorization&quot; của đề.</p>
+<p>Nhóm không chọn morgan vì morgan chỉ ghi access log dạng một dòng văn bản, khó gắn thêm các trường như mã lỗi hay chi tiết lỗi, và không ghi được log từ bên trong logic xử lý. Nhóm không chọn winston vì winston cần cấu hình nhiều hơn để ra JSON có cấu trúc và chậm hơn pino. Winston vẫn là lựa chọn tốt khi cần đẩy log tới nhiều đích khác nhau.</p>
+<p>Mỗi request tạo đúng một dòng log gồm <code>request_id</code>, method, đường dẫn, status, thời gian xử lý và mã lỗi nếu có. Mức log phản ánh loại kết quả: <code>info</code> cho thành công, <code>warn</code> cho lỗi 4xx và <code>error</code> cho lỗi 5xx. Với lỗi 500, stack trace chỉ được ghi trong log, không bao giờ xuất hiện trong response.</p>
+<h3>2.10. Nơi lưu log: stdout và file, chưa dùng ELK</h3>
+<p>Nhóm chọn ghi log ra console (stdout) và file <code>logs/app.log</code>. Cách này đủ cho yêu cầu của đề: từ <code>request_id</code> trong response lỗi, chỉ cần chạy <code>grep &lt;request_id&gt; logs/app.log</code> là tìm được đúng dòng log.</p>
+<p>Nhóm chưa dùng ELK Stack (Elasticsearch, Logstash, Kibana) vì bộ này gồm ít nhất ba dịch vụ, cần vài GB RAM và nhiều cấu hình, trong khi bài chỉ có một service và chạy trên máy cá nhân. Grafana Loki nhẹ hơn ELK nhưng vẫn cần thêm Loki, Promtail và Grafana. Dù vậy, vì log đã ở dạng JSON có cấu trúc, khi cần có thể đẩy thẳng vào ELK hoặc Loki mà không phải sửa code.</p>
+<p>Nhóm không lưu log vào cơ sở dữ liệu. Khi cơ sở dữ liệu gặp sự cố thì vẫn phải ghi được lỗi đó, mà đó lại là lúc cần log nhất. Ngoài ra, ghi vào cơ sở dữ liệu làm mỗi request phải thêm một câu <code>INSERT</code>.</p>
+<h3>2.11. request_id và hàm bọc withApi</h3>
+<p>Nhóm chọn sinh một UUID mới ở server cho mỗi request. Mã này được trả trong header <code>X-Request-Id</code>, trong body lỗi và trong dòng log. Nhóm không nhận <code>X-Request-Id</code> do client gửi lên để tránh trường hợp client gửi mã trùng hoặc giả mạo làm log bị lẫn. Đánh đổi là khi có nhiều service gọi nhau thì chưa nối được mã giữa các service, nhưng bài hiện chỉ có một service.</p>
+<p>Toàn bộ phần dùng chung được đặt trong hàm <code>withApi</code> (<code>lib/api/handler.ts</code>). Hàm này sinh <code>request_id</code>, bắt mọi exception, chuyển thành response theo error contract và ghi log. Nhờ việc tạo response lỗi chỉ nằm ở một chỗ, không endpoint nào trả lỗi sai định dạng. Nhóm không đặt phần này trong <code>proxy</code> (tên mới của middleware trong Next.js 16) vì <code>proxy</code> không bắt được exception xảy ra bên trong route handler.</p>
+<p>Mặc định Next.js trả trang HTML khi gọi đường dẫn không tồn tại và trả 405 với body rỗng khi gọi sai method, cả hai đều không theo error contract. Nhóm thêm route <code>app/[...slug]/route.ts</code> để trả 404 <code>NOT_FOUND</code>, và hàm <code>rejectOtherMethods</code> để trả 405 <code>METHOD_NOT_ALLOWED</code> kèm header <code>Allow</code>.</p>
+<h3>2.12. Error contract và status code</h3>
+<p>Mọi lỗi có dạng <code>{ code, message, details, request_id }</code> theo đúng slide. Trường <code>code</code> là chuỗi cố định để chương trình phía client rẽ nhánh. Trường <code>message</code> chỉ để hiển thị và có thể đổi câu chữ mà không làm hỏng client. Danh sách mã lỗi được khai báo một lần và đưa vào spec dưới dạng <code>enum</code>.</p>
+<p>Về status, nhóm theo đúng bảng trong đề và thống nhất cách phân biệt 409 với 422 như sau. Hết hàng là 409 vì nó phụ thuộc vào trạng thái lúc gọi: khi kho được nhập thêm, cùng một request sẽ thành công. Sản phẩm ngừng bán là 422 vì bản thân dữ liệu được tham chiếu không dùng được, gửi lại bao nhiêu lần cũng vậy.</p>
+<p>Nhóm vẫn kiểm tra <code>quantity</code> ở API dù cơ sở dữ liệu đã có <code>CHECK (quantity BETWEEN 1 AND 10)</code>. Nếu chỉ dựa vào cơ sở dữ liệu, vi phạm ràng buộc sẽ thành lỗi 500 thay vì 400, đúng là lỗi &quot;dựa vào lỗi DB&quot; mà đề cảnh báo.</p>
+<h3>2.13. Xử lý đồng thời: khóa bi quan với SELECT ... FOR UPDATE</h3>
+<p>Mọi thao tác ghi vào giỏ chạy trong một transaction và bắt đầu bằng việc khóa dòng giỏ hàng bằng <code>SELECT ... FOR UPDATE</code>. Hai request cùng sửa một giỏ sẽ được xử lý lần lượt, không xảy ra trường hợp cả hai cùng thấy &quot;sản phẩm chưa có trong giỏ&quot; rồi cùng thêm vào.</p>
+<p>Nhóm không chọn khóa lạc quan (thêm cột <code>version</code> và thử lại khi xung đột) vì phải đổi lược đồ của đề và client phải xử lý việc thử lại. Nhóm cũng không chỉ dựa vào khóa chính <code>(cart_id, product_id)</code> để chặn trùng, vì khi đó lỗi vi phạm khóa sẽ thành 500 nếu không bắt riêng. Một giỏ hàng hiếm khi bị nhiều request sửa cùng lúc, nên khóa bi quan không ảnh hưởng đáng kể đến hiệu năng.</p>
+<p>Giá sản phẩm luôn được đọc từ cơ sở dữ liệu, API không nhận giá từ client. Tiền được lưu bằng số nguyên theo đơn vị nhỏ nhất (<code>price_cents</code>) để tránh sai số của số thực.</p>
+<h3>2.14. Kiểm thử nghiệm thu: script riêng kết hợp Ajv</h3>
+<p>Nhóm chọn viết một script TypeScript (<code>scripts/acceptance.ts</code>, chạy bằng <code>npm run test:acceptance</code>) cho toàn bộ ma trận nghiệm thu. Script reset cơ sở dữ liệu, chạy từng kịch bản, đếm số dòng trong bảng <code>cart_items</code> trước và sau request sai để chứng minh cơ sở dữ liệu không đổi, tắt và bật lại container PostgreSQL cho kịch bản lỗi 500, rồi ghi kết quả ra <code>docs/acceptance-report.md</code>.</p>
+<p>Mọi response được đối chiếu với <code>/openapi.json</code> bằng Ajv. Nhóm cố ý dùng Ajv thay vì zod ở bước này vì Ajv là validator độc lập, không dùng chung mã với phần sinh spec. Nếu server trả một status chưa khai báo hoặc thiếu một trường so với spec, script sẽ báo lỗi. Nhóm đã thử đưa dữ liệu sai vào để chắc Ajv thật sự phát hiện được sai lệch.</p>
+<p>Nhóm không chọn Postman kết hợp Newman vì collection được lưu dưới dạng JSON khó đọc khi xem lại thay đổi, và khó thực hiện các bước như truy vấn trực tiếp cơ sở dữ liệu hay tắt container. Nhóm không chọn Jest kết hợp Supertest vì phần kiểm thử ở đây là kiểm thử đầu cuối trên server thật đúng như ma trận của đề, không cần framework unit test.</p>
+<h2>3. Kết quả nghiệm thu</h2>
+<table>
+<thead>
+<tr>
+<th>Nhóm kịch bản</th>
+<th>Số kịch bản</th>
+<th>Kết quả</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Request sai (quantity 0, 11, &quot;2&quot;; thiếu product_id; field lạ; JSON hỏng; cartId sai; limit vượt giới hạn)</td>
+<td>9</td>
+<td>Đạt</td>
+</tr>
+<tr>
+<td>Nghiệp vụ (subtotal, thêm trùng, đổi số lượng, xóa, ngừng bán, vượt tồn kho, giỏ đã đóng)</td>
+<td>15</td>
+<td>Đạt</td>
+</tr>
+<tr>
+<td>Đường dẫn không tồn tại, method không hỗ trợ</td>
+<td>2</td>
+<td>Đạt</td>
+</tr>
+<tr>
+<td>request_id có trong log</td>
+<td>1</td>
+<td>Đạt</td>
+</tr>
+<tr>
+<td>Tắt PostgreSQL rồi gọi API</td>
+<td>1</td>
+<td>Đạt</td>
+</tr>
+<tr>
+<td>Tổng</td>
+<td>28</td>
+<td>28/28</td>
+</tr>
+</tbody></table>
+<p>Bảng chi tiết từng kịch bản nằm trong file <code>docs/acceptance-report.md</code>.</p>
+<h2>4. Hạn chế và hướng phát triển</h2>
+<ul>
+<li>Chưa có bài kiểm tra cho nhiều request đồng thời vào cùng một giỏ. Mã nguồn đã khóa dòng bằng <code>FOR UPDATE</code> nhưng chưa được kiểm chứng bằng test.</li>
+<li>Tồn kho mới chỉ được kiểm tra, chưa được giữ chỗ. Hai giỏ khác nhau có thể cùng thêm hết số hàng còn lại. Việc giữ hàng thuộc về chức năng checkout ở các tuần sau.</li>
+<li>Response thành công chưa được kiểm tra lại bằng schema khi chạy thật, mà được đảm bảo bằng kiểu TypeScript lúc biên dịch và bằng Ajv trong script nghiệm thu.</li>
+<li>File log chưa có cơ chế xoay vòng. Khi triển khai thật, nhóm sẽ đẩy log sang Loki hoặc ELK.</li>
+<li>Trang <code>/docs</code> cần internet vì Scalar được tải từ CDN.</li>
+</ul>
+
+</main>
+</body>
+</html>

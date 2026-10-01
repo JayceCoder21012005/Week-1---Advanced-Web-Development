@@ -11,7 +11,7 @@ import { SEED } from "../db/seed-ids";
 extendZodWithOpenApi(z);
 
 // ---------- Params ----------
-// Đặt tên ("CartId", "ProductId") để spec sinh ra #/components/parameters và dùng $ref.
+// Đặt tên ("CartId", "ProductId") để spec khai báo schema một lần trong #/components/schemas và dùng $ref.
 export const CartIdParam = z.uuid().openapi("CartId", {
   param: { name: "cartId", in: "path" },
   example: "0b8f4c7e-5d2a-4f1b-9c3e-7a6d5e4f3b21",
